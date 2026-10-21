@@ -1,28 +1,30 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+import os                                  # allows python to talk to the operating system)
+from dotenv import load_dotenv             # we use it for os.getenv("DATABASE_URL") which reads the .env file and loads each line
+from sqlalchemy import create_engine, text # from this import we used (create engine = builds the connection manager for the database) and (text = wraps a SQL string so SQLAlchemy accepts it and also allows :name placeholders)
+from sqlalchemy.exc import SQLAlchemyError # SQLAlchemy's collection of error types.
 
 load_dotenv()
 
 # connecting to the engine
-def get_engine():
+# This is necessary because if any cases like the wrong password comes up then it would only blow up later in the middle of store_report
+# In general, get_engine() sets up and checks the connection to the database, then hands it to the rest of the program
+def get_engine():  
     """Create and return a SQLAlchemy engine from DATABASE_URL."""
     url = os.getenv("DATABASE_URL")
     
     if not url:
         raise RuntimeError("DATABASE_URL is not set. Add it to your .env file.")
-    engine = create_engine(url)
+    engine = create_engine(url) #builds the engine
     
-    try:
+    try: # The test call
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-    except SQLAlchemyError:
+    except SQLAlchemyError: # In case the call fails like wrong password, container stopped etc
         print("Could not connect to the database. Is the container running?")
         raise
-    return engine
+    return engine # calls the engine
 
-
+# This is the first task that was focused in creating a function that counts, shows the catalog, and view the top 3 customers
 def store_report(engine):
     """Print counts, the catalog, and the top 3 customers."""
     with engine.connect() as conn:
@@ -58,6 +60,7 @@ def store_report(engine):
             label = "item" if items == 1 else "items"
             print(f"{email} - {items} {label}")
 
+# A function for adding a product into the current database 
 def add_product(engine, name, category, price, stock):
     """INSERT a product and return its new id."""
     with engine.begin() as conn:   
@@ -68,7 +71,7 @@ def add_product(engine, name, category, price, stock):
         """), {"name": name, "category": category, "price": price, "stock": stock})
         return result.scalar()   
         
-
+# A function to place orders that connects directly with a user's email
 def place_order(engine, email, product_name, quantity):
     """Create an order and decrement stock in one transaction."""
     with engine.begin() as conn:  
@@ -138,7 +141,7 @@ def place_order(engine, email, product_name, quantity):
 
         print("Order placed successfully!")
 
-
+# In main, we are calling the engine and store report showing the database and the updates that we placed in them through a visible store dashboard
 def main():
     engine = get_engine()
     store_report(engine)
@@ -150,6 +153,7 @@ def main():
         print("3. Place an order")
         print("4. Exit")
 
+        # A function that asks the user for input from 1 - 4 
         choice = input("Choose an option: ")
        
         # View store report 
@@ -181,6 +185,6 @@ def main():
         elif choice == "4":
             print("Exiting...")
             break
-
+# starts the program only when i run the file directly and not when another file, such as the grader, imports it
 if __name__ == "__main__":
     main()
